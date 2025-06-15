@@ -7,7 +7,7 @@ This project combines modern web technologies with AI-powered tools to provide a
 
 ## Features
 
-### 1. **Online Game Analysis**
+### 1. **Online Playing Analysis**
 - **What it does**: Records your playing and analyzes the pitch, tempo, and note stability.
 - **How it works**: Uses the `ml5.js` library for pitch detection, powered by machine learning models.
 - **Why it's useful**: Provides feedback on your playing, such as tone stability and tempo, and offers recommendations for improvement.
