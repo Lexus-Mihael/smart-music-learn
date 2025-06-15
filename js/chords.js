@@ -20,6 +20,7 @@ document.getElementById('startChord').onclick = async () => {
 document.getElementById('stopChord').onclick = () => {
   isRecording = false;
   document.getElementById('stopChord').disabled = true;
+  document.getElementById('startChord').disabled = false; // Re-enable the "Записати" button
   showResults();
 };
 

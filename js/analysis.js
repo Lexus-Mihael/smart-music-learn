@@ -23,6 +23,7 @@ document.getElementById('startRec').onclick = async () => {
 document.getElementById('stopRec').onclick = () => {
   isRecording = false;
   document.getElementById('stopRec').disabled = true;
+  document.getElementById('startRec').disabled = false; // Re-enable the "Почати запис" button
   showResults();
 };
 

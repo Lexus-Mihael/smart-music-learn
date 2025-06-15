@@ -26,13 +26,22 @@ if (suggestionForm) {
     const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value, 10);
     const goal = document.getElementById('goal').value;
 
-    // Generate predefined recommendations
-    const recommendations = generatePredefinedRecommendations(instrument, dailyTime, daysPerWeek, goal);
-
-    // Display recommendations
+    // Show the loading spinner
+    const loadingSpinner = document.getElementById('loadingSpinner');
     const suggestionText = document.getElementById('suggestionText');
-    suggestionText.textContent = recommendations;
+    suggestionText.textContent = ''; // Clear previous recommendations
+    loadingSpinner.classList.remove('d-none');
     suggestionResult.classList.remove('d-none');
+
+    // Simulate recommendation generation
+    setTimeout(() => {
+      // Generate predefined recommendations
+      const recommendations = generatePredefinedRecommendations(instrument, dailyTime, daysPerWeek, goal);
+
+      // Hide the loading spinner and display recommendations
+      loadingSpinner.classList.add('d-none');
+      suggestionText.textContent = recommendations;
+    }, 2000); // Simulate a 3-second delay
   };
 }
 
@@ -42,21 +51,21 @@ function generatePredefinedRecommendations(instrument, dailyTime, daysPerWeek, g
   recommendations += `Ви плануєте займатися ${dailyTime} хвилин на день, ${daysPerWeek} днів на тиждень. `;
 
   // Add specific recommendations based on the instrument
-  if (instrument === 'guitar') {
+  if (instrument === 'гітара') {
     recommendations += 'Рекомендуємо почати з базових акордів (C, G, D, Am, Em) та вправ на зміну акордів. ';
     if (goal.toLowerCase().includes('fingerstyle')) {
       recommendations += 'Спробуйте вправи на арпеджіо та техніку fingerstyle. ';
     } else if (goal.toLowerCase().includes('соло')) {
       recommendations += 'Зосередьтеся на гамах та техніці легато для гри соло. ';
     }
-  } else if (instrument === 'piano') {
+  } else if (instrument === 'піаніно') {
     recommendations += 'Рекомендуємо почати з гам (C мажор, G мажор) та простих мелодій, таких як "Twinkle Twinkle Little Star". ';
     if (goal.toLowerCase().includes('до елізи')) {
       recommendations += 'Вивчіть основи нотного запису та вправи на легато. ';
     } else if (goal.toLowerCase().includes('джаз')) {
       recommendations += 'Спробуйте вправи на імпровізацію та акордові прогресії в стилі джазу. ';
     }
-  } else if (instrument === 'violin') {
+  } else if (instrument === 'скрипка') {
     recommendations += 'Рекомендуємо вправи на утримання смичка та прості мелодії, такі як "Ода до радості". ';
     if (goal.toLowerCase().includes('оркестр')) {
       recommendations += 'Зосередьтеся на техніці гри в ансамблі та читанні партитур. ';
