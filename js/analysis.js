@@ -8,7 +8,7 @@ async function initPitch() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const source = audioContext.createMediaStreamSource(stream);
   const modelUrl = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/';
-  pitchModel = await ml5.pitchDetection(modelUrl, audioContext, source.stream, () => console.log('Pitch model loaded'));
+  pitchModel = await ml5.pitchDetection(modelUrl, audioContext, stream, () => console.log('Pitch model loaded'));
 }
 
 document.getElementById('startRec').onclick = async () => {
@@ -23,6 +23,7 @@ document.getElementById('startRec').onclick = async () => {
 document.getElementById('stopRec').onclick = () => {
   isRecording = false;
   document.getElementById('stopRec').disabled = true;
+  showResults();
 };
 
 function recordPitch() {
@@ -32,21 +33,28 @@ function recordPitch() {
     setTimeout(recordPitch, 200);
   });
 }
-
 function showResults() {
   const ul = document.getElementById('analysisList');
   ul.innerHTML = '';
-  const avg = results.reduce((a, b) => a + b, 0) / results.length;
-  results.forEach((f, i) => {
+  if (results.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item text-danger';
+    li.textContent = 'Не вдалося розпізнати жодної ноти. Спробуйте ще раз!';
+    ul.appendChild(li);
+    document.getElementById('analysisResult').classList.remove('d-none');
+    return;
+  }
+
+  // Calculate note durations
+  const noteDurations = calculateNoteDurations(results);
+
+  // Display note sequence with durations
+  noteDurations.forEach(({ note, duration }, i) => {
     const li = document.createElement('li');
     li.className = 'list-group-item';
-    li.textContent = `Зразок ${i+1}: ${f.toFixed(2)} Hz (${frequencyToNote(f)})`;
+    li.textContent = `Нота ${i + 1}: ${note}, тривалість: ${duration.toFixed(1)} секунд`;
     ul.appendChild(li);
   });
-  const liAvg = document.createElement('li');
-  liAvg.className = 'list-group-item fw-bold';
-  liAvg.textContent = `Середній тон: ${avg.toFixed(2)} Hz (${frequencyToNote(avg)})`;
-  ul.appendChild(liAvg);
 
   // Recommendations
   const liRec = document.createElement('li');
@@ -54,7 +62,26 @@ function showResults() {
   liRec.textContent = 'Рекомендації: ' + getRecommendations(results);
   ul.appendChild(liRec);
 
+  // Show the result block
   document.getElementById('analysisResult').classList.remove('d-none');
+}
+
+function calculateNoteDurations(frequencies) {
+  const notes = frequencies.map(frequencyToNote);
+  const durations = [];
+  let currentNote = notes[0];
+  let startTime = 0;
+
+  for (let i = 1; i <= notes.length; i++) {
+    if (i === notes.length || notes[i] !== currentNote) {
+      const duration = (i - startTime) * 0.2; // 200ms per sample
+      durations.push({ note: currentNote, duration });
+      currentNote = notes[i];
+      startTime = i;
+    }
+  }
+
+  return durations;
 }
 
 function frequencyToNote(frequency) {

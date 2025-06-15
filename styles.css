@@ -6,7 +6,7 @@ h1, h2 {
   color: #343a40;
 }
 
-#analysisResult, #planResult {
+#analysisResult, #planResult, #suggestionResult {
   background-color: #ffffff;
   padding: 20px;
   border-radius: 5px;

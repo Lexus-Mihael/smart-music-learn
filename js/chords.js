@@ -1,104 +1,85 @@
 // js/chords.js
-const startBtn = document.getElementById('startChord');
-const stopBtn  = document.getElementById('stopChord');
-const resultEl = document.getElementById('chordResult');
-const listEl   = document.getElementById('chordList');
+let pitchModel, audioContext, isRecording = false, results = [];
 
-let audioContext, mediaRecorder, chunks = [];
-async function initRecording() {
+async function initPitch() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.ondataavailable = e => chunks.push(e.data);
+  const modelUrl = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/';
+  pitchModel = await ml5.pitchDetection(modelUrl, audioContext, stream, () => console.log('Pitch model loaded'));
 }
 
-startBtn.onclick = async () => {
-  if (!mediaRecorder) await initRecording();
-  chunks = [];
-  mediaRecorder.start();
-  startBtn.disabled = true;
-  stopBtn.disabled  = false;
-  setTimeout(() => stopBtn.click(), 5000); // автозупинка через 5 с
+document.getElementById('startChord').onclick = async () => {
+  if (!pitchModel) await initPitch();
+  isRecording = true;
+  results = [];
+  document.getElementById('startChord').disabled = true;
+  document.getElementById('stopChord').disabled  = false;
+  recordPitch();
 };
 
-stopBtn.onclick = () => {
-  mediaRecorder.stop();
-  stopBtn.disabled = true;
+document.getElementById('stopChord').onclick = () => {
+  isRecording = false;
+  document.getElementById('stopChord').disabled = true;
+  showResults();
 };
 
-mediaRecorder?.addEventListener('stop', async () => {
-  const blob = new Blob(chunks, { type: 'audio/webm' });
-  const arrayBuffer = await blob.arrayBuffer();
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+function recordPitch() {
+  if (!isRecording) return showResults();
+  pitchModel.getPitch((err, frequency) => {
+    if (frequency) results.push(frequency);
+    setTimeout(recordPitch, 200);
+  });
+}
 
-  // Виклик Magenta.js OnsetsAndFrames
-  const model = new mm.OnsetsAndFrames();
-  await model.initialize();
-  const noteSeq = await model.transcribe(audioBuffer);
-
-  // Групування нот у акорди (простий підхід)
-  const chords = groupNotesToChords(noteSeq.notes);
-
-  listEl.innerHTML = '';
-  chords.forEach((chord, i) => {
+function showResults() {
+  const ul = document.getElementById('chordList');
+  ul.innerHTML = '';
+  if (results.length === 0) {
     const li = document.createElement('li');
-    li.className = 'list-group-item';
-    li.textContent = `Акорд ${i+1}: ${chord.name} (ноти: ${chord.notes.join(', ')})`;
-    listEl.appendChild(li);
-  });
+    li.className = 'list-group-item text-danger';
+    li.textContent = 'Не вдалося розпізнати жодного акорду. Спробуйте ще раз!';
+    ul.appendChild(li);
+    document.getElementById('chordResult').classList.remove('d-none');
+    return;
+  }
 
-  // Додати рекомендації
-  const recLi = document.createElement('li');
-  recLi.className = 'list-group-item text-primary';
-  recLi.textContent = 'Рекомендації: ' + getChordRecommendations(chords);
-  listEl.appendChild(recLi);
+  // Convert frequencies to note names
+  const notes = results.map(frequencyToNote);
+  const uniqueNotes = [...new Set(notes)];
 
-  resultEl.classList.remove('d-none');
-});
+  // Guess chord name
+  const chordName = guessChordName(uniqueNotes);
+  const liChord = document.createElement('li');
+  liChord.className = 'list-group-item fw-bold';
+  liChord.textContent = 'Розпізнаний акорд: ' + chordName;
+  ul.appendChild(liChord);
 
-// Простий алгоритм для групування нот у акорди
-function groupNotesToChords(notes) {
-  // Групуємо ноти за часом (наприклад, кожні 0.5 сек)
-  const groups = [];
-  let group = [];
-  let lastTime = null;
-  notes.forEach(note => {
-    if (lastTime === null || note.startTime - lastTime < 0.5) {
-      group.push(note.pitch);
-    } else {
-      groups.push(group);
-      group = [note.pitch];
-    }
-    lastTime = note.startTime;
-  });
-  if (group.length) groups.push(group);
-
-  // Визначаємо назву акорду (дуже спрощено)
-  return groups.map(g => ({
-    notes: g.map(pitchToNoteName),
-    name: guessChordName(g.map(pitchToNoteName))
-  }));
+  document.getElementById('chordResult').classList.remove('d-none');
 }
 
-function pitchToNoteName(pitch) {
+function frequencyToNote(frequency) {
+  if (!frequency) return '';
   const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  return noteNames[pitch % 12];
+  const A4 = 440;
+  const n = Math.round(12 * Math.log2(frequency / A4));
+  const noteIndex = (n + 9) % 12;
+  return noteNames[(noteIndex + 12) % 12];
 }
 
 function guessChordName(notes) {
-  // Дуже простий підхід: якщо є C, E, G — це C; D, F#, A — D і т.д.
-  if (notes.includes('C') && notes.includes('E') && notes.includes('G')) return 'C';
-  if (notes.includes('D') && notes.includes('F#') && notes.includes('A')) return 'D';
-  if (notes.includes('G') && notes.includes('B') && notes.includes('D')) return 'G';
-  // ...додайте ще акорди...
-  return 'Невідомий акорд';
-}
+  // Improved chord guessing logic
+  if (notes.includes('C') && notes.includes('E') && notes.includes('G')) return 'C мажор';
+  if (notes.includes('A') && notes.includes('C#') && notes.includes('E')) return 'A мажор';
+  if (notes.includes('D') && notes.includes('F#') && notes.includes('A')) return 'D мажор';
+  if (notes.includes('G') && notes.includes('B') && notes.includes('D')) return 'G мажор';
+  if (notes.includes('E') && notes.includes('G#') && notes.includes('B')) return 'E мажор';
+  if (notes.includes('F') && notes.includes('A') && notes.includes('C')) return 'F мажор';
+  if (notes.includes('B') && notes.includes('D#') && notes.includes('F#')) return 'B мажор';
 
-function getChordRecommendations(chords) {
-  if (chords.length === 0) return 'Недостатньо даних для аналізу акордів.';
-  const uniqueChords = [...new Set(chords.map(c => c.name))];
-  if (uniqueChords.length < 2) {
-    return 'Спробуйте грати різні акорди для розвитку гармонічного слуху.';
-  }
-  return 'Ви використовуєте різноманітні акорди! Продовжуйте в тому ж дусі.';
+  // Minor chords
+  if (notes.includes('A') && notes.includes('C') && notes.includes('E')) return 'A мінор';
+  if (notes.includes('D') && notes.includes('F') && notes.includes('A')) return 'D мінор';
+  if (notes.includes('E') && notes.includes('G') && notes.includes('B')) return 'E мінор';
+
+  return 'Невідомий акорд';
 }
